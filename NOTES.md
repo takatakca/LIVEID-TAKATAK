@@ -46,8 +46,35 @@ Sécurité premium contre la fraude. Site principal takatak.ca, aussi les restau
 - 06:35 EST — **constat important** sur de vraies photos : le modèle d'empreinte fourni avec la librairie (faceres) donnait 0,56 entre deux femmes différentes, plus que certaines paires de la même personne (0,34). Trop faible pour décider seul. Essais : modèle « deep » (aucun effet), ResNet de face-api sans alignement (chevauchement), fusion (chevauchement). **Retenu : ResNet `@vladmandic/face-api` sur le visage redressé par la ligne des yeux** → même personne pire cas 0,499, personnes différentes meilleur cas 0,421 : séparation nette. Aucun paquet ArcFace inconnu installé (risque de chaîne d'approvisionnement).
 - 06:38 EST — nouveaux seuils (avant → après) : correspondance 0,40 → **0,50** ; zone « réessayer » 0,32 → **0,44** ; même personne pendant le direct 0,45 → **0,55** (échelle = 1 − distance ResNet).
 - 06:40 EST — tests sur vrais modèles 9/9 ✅ : carte spécimen du même homme acceptée ; carte pour une autre personne refusée ; carte expirée refusée ; visage montré à la place d'une carte refusé ; chiffres dits « seven three nine one » reconnus, mauvais chiffres et bruit refusés ; **attaque photo immobile + bons chiffres joués à côté : refusée** (tête immobile, bouche immobile — la voix, elle, était bien reconnue) ; **attaque photo imprimée inclinée pour imiter les mouvements : refusée** (aucun mouvement détecté). 88 images analysées en ≈ 10 s sur le processeur.
-- **Total : 57/57 tests réussis.**
+- **Total : 57/57 tests réussis** (58/58 après l'ajout du test photo 3200 px à 07:05).
 
-## APRÈS
+- 06:45 EST — test navigateur réel (Chromium, caméra simulée) 5/5 ✅ : site partenaire « Resto Démo » → LIVE ID → consentement → codes SMS + courriel → retour sur le site avec résultat signé (signature EdDSA vérifiée par le site) ; caméra qui montre une photo → refusée par le serveur (« Les mouvements de tête ne correspondent pas »), « Essais restants : 2 ». Le résultat signé a aussi signalé le navigateur automatisé (score de risque 100).
+- 06:50 EST — mode production vérifié : refuse de démarrer avec les fournisseurs « console » ; démarre avec Twilio/SMTP configurés ; en-têtes HSTS, CSP, X-Frame-Options présents ; boîte de test `/dev/outbox` = 404.
+- 06:55 EST — image Docker : construction impossible DANS ce conteneur (serveur Debian bloqué par le réseau du bac à sable) → ajout d'un job CI qui construit l'image, la démarre en production et vérifie la santé.
+- 07:00 EST — CI GitHub run 41301840126 : **succès** (job `test` : types, build, 57 tests, navigateur ; job `docker` : image construite, démarrée en production, `/healthz` OK, `/dev/outbox` 404, reconnaissance vocale chargée).
+- 07:05 EST — revue de code : 2 risques mémoire corrigés (avant → après) : photo de pièce 12 MP analysée en pleine taille (~140 Mo) → réduite à 1600 px d'abord ; envoi du direct sans plafond total → plafond 24 Mo. Test ajouté : photo de carte 3200 px acceptée. Tests : **58/58**.
 
-_(à venir)_
+## APRÈS — 2026-11-01 07:08 EST
+
+**Résultat vérifié** : LIVE ID fonctionne de bout en bout et est poussé sur `takatakca/LIVEID-TAKATAK`, branche `claude/liveid-system` (pas encore dans `main`). CI GitHub verte (tests + navigateur + image Docker).
+
+Ce qui marche, dans l'ordre demandé par Matt :
+1. Écran « TAKATAK LIVE ID — <site> veut vérifier votre identité » : Accepter / Refuser, consentement exprès (Loi 25).
+2. Téléphone : code SMS (Twilio), 6 chiffres, 10 min, 5 essais, limites anti-abus.
+3. Courriel : code par courriel (SMTP), courriels jetables refusés.
+4. Direct : 4 chiffres au hasard à dire à voix haute + 4 mouvements de tête au hasard (gauche/droite/haut/bas) ; le serveur vérifie un seul visage, le même du début à la fin, les mouvements dans l'ordre, les chiffres entendus, la bouche synchronisée avec la voix ; caméras virtuelles et navigateurs automatisés bloqués.
+5. Recto de la pièce : visage de la carte comparé au visage en direct (ResNet, seuil 0,50), texte de carte exigé, carte expirée refusée.
+6. Le site reçoit un résultat signé (niveau `basic` / `live` / `premium`). Script pop-up prêt pour les restaurants.
+
+**Il reste (gestes humains, aucun secret ici)** :
+1. **Matt / coordinateur** : relire et fusionner la branche dans `main` (ou demander la PR).
+2. **Matt** : choisir l'adresse (proposé : `liveid.takatak.ca`) et l'ajouter dans Coolify avec le `Dockerfile` ; base PostgreSQL (Supabase ou Coolify) ; secrets dans Coolify : `npm run keys:generate` (3 valeurs), Twilio (déjà prévu pour PPP), SMTP, `TRUST_PROXY=true`.
+3. **Développeur** : enregistrer takatak.ca et pppmtl.com (`npm run client:create`) et brancher le bouton (guide `docs/INTEGRATION.md`).
+4. **Test terrain obligatoire avant d'ouvrir au public** : 20–30 vraies vérifications sur staging (téléphones, lumières, âges différents) pour ajuster les seuils — aucune caméra dans le conteneur cloud, le succès avec une vraie personne n'a pas pu être testé ici.
+5. **Avocat / CAI** : faire relire le texte de consentement et la conservation ; vérifier l'obligation de déclaration à la Commission d'accès à l'information (biométrie).
+6. Français parlé hors ligne = expérimental : pour le français fiable, clé OpenAI (`SPEECH_PROVIDER=openai`) ou demander les chiffres en anglais.
+7. Faux documents (hologrammes, etc.) non détectés : fournisseur spécialisé si besoin (voir le plan `cash-verified-accounts.md` dans takatak-v1).
+
+Captures d'écran : artefact `e2e-screenshots` de chaque exécution CI GitHub (et `artifacts/e2e/` localement, non versionné car il contient une photo d'exemple d'un tiers).
+
+Signé : **Claude (cloud session LIVE ID 01CXwoss)**

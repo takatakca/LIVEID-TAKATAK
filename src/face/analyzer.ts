@@ -159,6 +159,14 @@ export class HumanFaceAnalyzer implements FaceAnalyzer {
       } catch {
         throw new Error('image_decode_failed');
       }
+      // Phone photos can be 12 MP: scale the long side to MAX_SIDE first to bound memory and time.
+      const [h0, w0] = tensor.shape as [number, number, number];
+      if (Math.max(h0, w0) > MAX_SIDE) {
+        const k = MAX_SIDE / Math.max(h0, w0);
+        const resized = tf.tidy(() => tf.cast(tf.image.resizeBilinear(tensor, [Math.round(h0 * k), Math.round(w0 * k)]), 'int32'));
+        tf.dispose(tensor);
+        tensor = resized;
+      }
       try {
         const [height, width] = tensor.shape as [number, number, number];
         const res = await this.human.detect(tensor, {
@@ -221,6 +229,8 @@ export function descriptorSimilarity(a: number[], b: number[]): number {
 }
 
 export const ALIGNED_SIZE = 150;
+/** Longest image side analysed; bigger images are scaled down first. */
+export const MAX_SIDE = 1600;
 
 /**
  * Rotates the face so the eyes are level, scales it so the eye distance is fixed, and samples a

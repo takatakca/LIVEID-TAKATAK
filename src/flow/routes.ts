@@ -37,6 +37,7 @@ const OTP_MAX_PER_SESSION = 5;
 const CHALLENGE_TTL_SECONDS = 180;
 const MAX_FRAME_BYTES = 400 * 1024;
 const MAX_FRAMES = 160;
+const MAX_TOTAL_FRAME_BYTES = 24 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 2 * 1024 * 1024;
 const MAX_ID_IMAGE_BYTES = 6 * 1024 * 1024;
 
@@ -281,6 +282,7 @@ export async function flowRoutes(app: FastifyInstance, deps: Deps): Promise<void
     const audioFile = files.find((f) => f.field === 'audio');
     if (frameFiles.length !== meta.frames.length) throw new FlowError('meta_invalid');
     if (frameFiles.some((f) => f.data.length > MAX_FRAME_BYTES || !isJpegOrPng(f.data))) throw new FlowError('frame_invalid');
+    if (frameFiles.reduce((s, f) => s + f.data.length, 0) > MAX_TOTAL_FRAME_BYTES) throw new FlowError('file_too_large', 413);
     if (audioFile && audioFile.data.length > MAX_AUDIO_BYTES) throw new FlowError('file_too_large', 413);
 
     // The challenge works once, for this session, before it expires.

@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../src/config.js';
 import { HumanFaceAnalyzer } from '../../src/face/analyzer.js';
@@ -71,6 +73,14 @@ describe('ID front on a specimen card', () => {
     expect(r, JSON.stringify(r)).toMatchObject({ passed: true, expired: false });
     expect(r.textChars).toBeGreaterThan(40);
     expect(r.similarity!).toBeGreaterThanOrEqual(th.faceMatch);
+  });
+
+  it('handles a full-size phone photo (scaled down before analysis)', async () => {
+    const big = path.join(fx.dir, 'id-specimen-big.jpg');
+    if (!existsSync(big)) execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', fx.specimen, '-vf', 'scale=3200:-2', big]);
+    const templates = [await embed(fx.same[0]!), await embed(fx.same[1]!), await embed(fx.same[2]!)];
+    const r = await verifyIdFront(analyzer, reader, readFileSync(big), templates, th, new Date('2026-11-01'));
+    expect(r.passed, JSON.stringify(r)).toBe(true);
   });
 
   it('refuses the card for somebody else', async () => {
