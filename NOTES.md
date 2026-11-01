@@ -35,6 +35,12 @@ Sécurité premium contre la fraude. Site principal takatak.ca, aussi les restau
 ## PENDANT
 
 - 2026-11-01 05:48 EST — branche `claude/liveid-system` créée depuis `main` 67fd8f4. Note AVANT écrite (ce fichier) avant tout code.
+- 05:49 EST — note AVANT poussée sur GitHub (commit sur la branche) et déposée dans Drive « 00 — Opérations TAKATAK » (doc 1ggvBcaT…, relue après dépôt : contenu complet). Tableau `foodhubca#105` : ajout du dépôt refusé par la session → CLAIM non publié.
+- 05:55 EST — calibration sur de vraies photos (images d'exemple livrées avec la librairie) : même personne 0,40–0,53, personnes différentes 0,09–0,26 → seuil de correspondance du visage **0,40**, zone « réessayer » 0,32–0,40. Rotation de tête ≈ 15° = 0,20 (décalage du nez / écart des yeux). Analyse ≈ 45 ms par image. Le modèle « vivacité » donne 0,94–1,00 même sur des photos → **il ne suffit pas** ; la vraie protection = défi aléatoire (mouvements + chiffres + bouche synchronisée), analysé côté serveur.
+- 05:58 EST — reconnaissance vocale hors ligne : « seven three nine one » reconnu exactement ; bruit → rien. Chiffres 1–9 seulement (pas de 0, ambigu « zéro / oh »).
+- 06:00 EST — lecture de texte (OCR) hors ligne testée : carte SPÉCIMEN de test lue exactement en 0,9 s ; un selfie → presque aucun texte. Donc l'étape pièce exige du texte de carte (≥ 20 caractères), refuse une carte expirée si la date est lisible, et compare le visage.
+- 06:00 EST — carte de test : « SPECIMEN TEST CARD — NOT A REAL ID — LIVE ID TEST FIXTURE », générée pour les tests seulement, aucun emblème officiel.
+- 06:20 EST — serveur écrit (avant : dépôt vide → après : code) : configuration avec garde-fous de production (pas de fournisseur « console », clé de signature obligatoire, https), chiffrement AES-256-GCM lié à la ligne, schéma PostgreSQL (aucune image ni son stockés), codes SMS/courriel hachés (6 chiffres, 10 min, 5 essais, 30 s entre deux envois, limites par numéro/courriel et par IP), flux type OAuth (`/authorize` → écran Accepter → étapes → code à usage unique 2 min → `/oauth/token` avec PKCE + secret → jeton signé Ed25519, sujet différent par site), détection robots (webdriver, navigateur sans tête, caméra virtuelle), purge automatique (empreinte du visage effacée dès l'étape pièce finie). Vérification de types : 0 erreur.
 
 ## APRÈS
 
