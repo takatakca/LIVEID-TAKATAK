@@ -36,7 +36,6 @@ export async function buildApp(deps: Deps, opts: { logger?: boolean } = {}): Pro
       : false,
     trustProxy: deps.cfg.trustProxy,
     bodyLimit: 64 * 1024,
-    disableRequestLogging: deps.cfg.isProd,
   });
 
   await app.register(cookie);

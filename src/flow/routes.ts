@@ -228,9 +228,9 @@ export async function flowRoutes(app: FastifyInstance, deps: Deps): Promise<void
   }
 
   const codeSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
-  app.post('/api/flow/phone/start', async (req) => startOtp(req, 'sms', z.object({ phone: z.string().min(7).max(32) }).parse(req.body).phone));
+  app.post('/api/flow/phone/start', async (req) => startOtp(req, 'sms', z.object({ phone: z.string().min(1).max(32) }).parse(req.body).phone));
   app.post('/api/flow/phone/verify', async (req) => verifyOtp(req, 'sms', codeSchema.parse(req.body).code));
-  app.post('/api/flow/email/start', async (req) => startOtp(req, 'email', z.object({ email: z.string().min(3).max(254) }).parse(req.body).email));
+  app.post('/api/flow/email/start', async (req) => startOtp(req, 'email', z.object({ email: z.string().min(1).max(254) }).parse(req.body).email));
   app.post('/api/flow/email/verify', async (req) => verifyOtp(req, 'email', codeSchema.parse(req.body).code));
 
   // ---- Live check -------------------------------------------------------------------------------------

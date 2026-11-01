@@ -52,11 +52,11 @@ const schema = z.object({
   SESSION_TTL_MINUTES: num(30),
   RETENTION_DAYS: num(30),
 
-  // Decision thresholds (calibrated on real photos, see docs/SECURITY.md).
-  FACE_MATCH_THRESHOLD: num(0.4),
-  FACE_MATCH_RETRY_BAND: num(0.32),
+  // Decision thresholds. Face scores are 1 − ResNet descriptor distance (calibrated on real photos, see docs/SECURITY.md).
+  FACE_MATCH_THRESHOLD: num(0.5),
+  FACE_MATCH_RETRY_BAND: num(0.44),
   FACE_REPLAY_SIMILARITY: num(0.93),
-  SAME_PERSON_THRESHOLD: num(0.45),
+  SAME_PERSON_THRESHOLD: num(0.55),
   POSE_YAW_THRESHOLD: num(0.2),
   POSE_PITCH_THRESHOLD: num(0.09),
   MOUTH_RANGE_MIN: num(0.03),
