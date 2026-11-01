@@ -41,7 +41,7 @@ export async function buildApp(deps: Deps, opts: { logger?: boolean } = {}): Pro
   await app.register(cookie);
   await app.register(formbody);
   await app.register(multipart, {
-    limits: { fileSize: 6 * 1024 * 1024, files: 170, fields: 10, fieldSize: 64 * 1024, parts: 190 },
+    limits: { fileSize: 6 * 1024 * 1024, files: 230, fields: 10, fieldSize: 64 * 1024, parts: 250 },
   });
   if (existsSync(PUBLIC_DIR)) {
     await app.register(fastifyStatic, { root: path.join(PUBLIC_DIR, 'assets'), prefix: '/assets/', maxAge: '1h', index: false });

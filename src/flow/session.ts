@@ -44,11 +44,15 @@ export interface SessionRow {
 
 export type Step = 'consent' | 'phone' | 'email' | 'liveness' | 'id_document';
 
-/** Matt's order: consent, phone, email, live check, then the ID front. */
+/**
+ * Matt's order (2026-11-01): email first, then the mobile number, then "accept all the terms",
+ * then the live check (the video starts right after the terms), then the ID front.
+ */
 export function plannedSteps(scopes: string[]): Step[] {
-  const s: Step[] = ['consent'];
-  if (scopes.includes('phone')) s.push('phone');
+  const s: Step[] = [];
   if (scopes.includes('email')) s.push('email');
+  if (scopes.includes('phone')) s.push('phone');
+  s.push('consent');
   if (scopes.includes('liveness') || scopes.includes('id_document')) s.push('liveness');
   if (scopes.includes('id_document')) s.push('id_document');
   return s;

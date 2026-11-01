@@ -6,15 +6,17 @@ export type Move = (typeof MOVES)[number];
 export interface ChallengePlan {
   /** Time the person reads the digits aloud, starting at 0 ms. */
   speakMs: number;
-  /** Time each head move prompt is shown. */
+  /** Longest time one head-move try may take (the browser shows live green/red feedback). */
   moveMs: number;
   /** Pause facing the camera after each move. */
   centerMs: number;
+  /** Shortest believable time for one move + return to centre (used for the "too short" check). */
+  minMoveMs: number;
   /** Frames per second the browser sends. */
   fps: number;
 }
 
-export const DEFAULT_PLAN: ChallengePlan = { speakMs: 5000, moveMs: 2200, centerMs: 900, fps: 5 };
+export const DEFAULT_PLAN: ChallengePlan = { speakMs: 5000, moveMs: 5000, centerMs: 700, minMoveMs: 900, fps: 5 };
 
 export interface Challenge {
   digits: string;
@@ -52,7 +54,7 @@ export function newChallenge(plan: ChallengePlan = DEFAULT_PLAN): Challenge {
   return { digits: randomDigits(4), moves: randomMoves(4), plan };
 }
 
-/** Expected recording length for a plan and a move count. */
-export function expectedDurationMs(plan: ChallengePlan, moveCount: number): number {
-  return plan.speakMs + moveCount * (plan.moveMs + plan.centerMs);
+/** Shortest believable recording for a plan and a move count (moves are interactive, so no fixed length). */
+export function minDurationMs(plan: ChallengePlan, moveCount: number): number {
+  return plan.speakMs + moveCount * plan.minMoveMs;
 }

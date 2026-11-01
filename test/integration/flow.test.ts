@@ -176,24 +176,29 @@ describe('authorize', () => {
   });
 });
 
-describe('full verification: consent → phone → email → live → ID → token', () => {
+describe('full verification: email → phone → terms → live → ID → token', () => {
   it('works end to end and returns a signed, verifiable result', async () => {
     const b = new Browser('203.0.113.20');
     const { verifier, state } = await b.authorize();
     const s0 = await b.state();
     expect(s0.client.name).toBe('PPP Pizzeria');
-    expect(s0.next).toBe('consent');
+    expect(s0.next).toBe('email');
+    expect(s0.steps.map((x: { step: string }) => x.step)).toEqual(['email', 'phone', 'consent', 'liveness', 'id_document']);
 
     // CSRF: a state-changing call without our header is refused.
-    expect((await b.post('/api/flow/consent', { accept: true }, false)).statusCode).toBe(403);
+    expect((await b.post('/api/flow/email/start', { email: EMAIL }, false)).statusCode).toBe(403);
     // Steps cannot be skipped.
-    expect((await b.post('/api/flow/email/start', { email: EMAIL })).json().error).toBe('wrong_step');
+    expect((await b.post('/api/flow/phone/start', { phone: '514 555-0134' })).json().error).toBe('wrong_step');
+    expect((await b.post('/api/flow/consent', { accept: true })).json().error).toBe('wrong_step');
 
-    expect((await b.post('/api/flow/consent', { accept: true, signals: humanSignals })).statusCode).toBe(200);
+    // 1. Email first.
+    expect((await b.post('/api/flow/email/start', { email: 'x@mailinator.com', signals: humanSignals })).json().error).toBe('email_disposable');
+    await b.passOtp('email', EMAIL);
+
+    // 2. Then the mobile number.
     expect((await b.post('/api/flow/phone/start', { phone: '123' })).json().error).toBe('phone_invalid');
     expect((await b.post('/api/flow/phone/start', { phone: '+33612345678' })).json().error).toBe('phone_country_not_supported');
-
-    const start = await b.post('/api/flow/phone/start', { phone: '514 555-0134' });
+    const start = await b.post('/api/flow/phone/start', { phone: '514 555-0134', signals: humanSignals });
     expect(start.json()).toMatchObject({ sent: true, to: '+1 ••••••••34' });
     expect((await b.post('/api/flow/phone/start', { phone: '514 555-0134' })).json().error).toBe('resend_too_soon');
     const sms = deps.outbox.list().find((m) => m.to === PHONE)!;
@@ -202,8 +207,10 @@ describe('full verification: consent → phone → email → live → ID → tok
     expect(wrong.json()).toMatchObject({ error: 'code_invalid', attemptsLeft: 4 });
     expect((await b.post('/api/flow/phone/verify', { code: deps.outbox.latestCode(PHONE) })).json()).toEqual({ verified: true });
 
-    expect((await b.post('/api/flow/email/start', { email: 'x@mailinator.com' })).json().error).toBe('email_disposable');
-    await b.passOtp('email', EMAIL);
+    // 3. Accept all the terms; the video comes next.
+    expect((await b.state()).next).toBe('consent');
+    expect((await b.post('/api/flow/consent', { accept: true, signals: humanSignals })).statusCode).toBe(200);
+    expect((await b.state()).next).toBe('liveness');
 
     // Live check: a first failed try (wrong digits), then a good one.
     const bad = await b.liveness({ heard: () => 'one two three four' });
@@ -282,8 +289,8 @@ describe('full verification: consent → phone → email → live → ID → tok
       const b = new Browser(ip);
       const { verifier } = await b.authorize({ scope: 'openid phone' });
       await b.state();
-      await b.post('/api/flow/consent', { accept: true, signals: humanSignals });
       await b.passOtp('phone', '+15145550199');
+      await b.post('/api/flow/consent', { accept: true, signals: humanSignals });
       const code = new URL((await b.post('/api/flow/finish')).json().redirect).searchParams.get('code')!;
       const r = await app.inject({
         method: 'POST',
@@ -312,14 +319,24 @@ describe('protections', () => {
     return { b, ...a };
   }
 
-  it('blocks automated browsers', async () => {
+  it('blocks automated browsers before any code is sent', async () => {
     const b = new Browser('203.0.113.40');
     await b.authorize();
     await b.state();
-    const r = await b.post('/api/flow/consent', { accept: true, signals: { ...humanSignals, webdriver: true } });
+    const before = deps.outbox.list().length;
+    const r = await b.post('/api/flow/email/start', { email: 'robot@takatak.ca', signals: { ...humanSignals, webdriver: true } });
     expect(r.statusCode).toBe(403);
     expect(r.json().error).toBe('automation_detected');
+    expect(deps.outbox.list().length).toBe(before);
     expect((await b.state()).status).toBe('failed');
+  });
+
+  it('blocks automation again at the terms step', async () => {
+    const b = new Browser('203.0.113.48');
+    await b.authorize({ scope: 'openid liveness' });
+    await b.state();
+    const r = await b.post('/api/flow/consent', { accept: true, signals: { ...humanSignals, webdriver: true } });
+    expect(r.json().error).toBe('automation_detected');
   });
 
   it('blocks a virtual camera at the live step', async () => {
@@ -337,6 +354,13 @@ describe('protections', () => {
     }
     expect((await b.state()).status).toBe('failed');
     expect((await b.post('/api/flow/liveness/challenge', {})).json().error).toBe('session_failed');
+  });
+
+  it('caps new challenges per session, then fails it (no free challenge farming)', async () => {
+    const { b } = await toLiveness('203.0.113.50');
+    for (let i = 0; i < 8; i++) expect((await b.post('/api/flow/liveness/challenge', { signals: humanSignals })).statusCode).toBe(200);
+    expect((await b.post('/api/flow/liveness/challenge', { signals: humanSignals })).json().error).toBe('too_many_attempts');
+    expect((await b.state()).status).toBe('failed');
   });
 
   it('refuses an ID that shows somebody else', async () => {
@@ -360,20 +384,28 @@ describe('protections', () => {
     const b = new Browser('203.0.113.45');
     await b.authorize({ scope: 'openid email', display: 'popup' });
     await b.state();
-    await b.post('/api/flow/consent', { accept: true, signals: humanSignals });
     await b.passOtp('email', 'popup@takatak.ca');
+    await b.post('/api/flow/consent', { accept: true, signals: humanSignals });
     const r = (await b.post('/api/flow/finish')).json();
     expect(r).toMatchObject({ mode: 'popup', targetOrigin: 'https://pppmtl.example' });
     expect(r.code).toBeTruthy();
   });
 
-  it('lets the person refuse', async () => {
+  it('lets the person refuse the terms, or leave at any step', async () => {
     const b = new Browser('203.0.113.46');
-    const { state } = await b.authorize();
+    const { state } = await b.authorize({ scope: 'openid email liveness' });
     await b.state();
+    await b.passOtp('email', 'refuse@takatak.ca');
     const r = (await b.post('/api/flow/consent', { accept: false })).json();
     expect(r.redirect).toContain('error=access_denied');
     expect(r.redirect).toContain(`state=${state}`);
+
+    const c = new Browser('203.0.113.49');
+    const second = await c.authorize();
+    await c.state();
+    const left = (await c.post('/api/flow/cancel')).json();
+    expect(left.redirect).toContain('error=access_denied');
+    expect(left.redirect).toContain(`state=${second.state}`);
   });
 
   it('rejects files that are not images and oversized uploads', async () => {

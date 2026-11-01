@@ -7,7 +7,7 @@ import { HumanFaceAnalyzer } from '../../src/face/analyzer.js';
 import { TesseractReader } from '../../src/idcheck/ocr.js';
 import { verifyIdFront } from '../../src/idcheck/verify.js';
 import { encodeWav, parseWav } from '../../src/liveness/audio.js';
-import { DEFAULT_PLAN, expectedDurationMs, type Move } from '../../src/liveness/challenge.js';
+import { DEFAULT_PLAN, type Move } from '../../src/liveness/challenge.js';
 import { PocketsphinxRecognizer, verifySpokenDigits } from '../../src/liveness/speech.js';
 import { verifyLiveness } from '../../src/liveness/verify.js';
 import { makeFixtures, type Fixtures } from '../helpers/fixtures.js';
@@ -119,7 +119,9 @@ describe('spoken digits, offline recognizer', () => {
 describe('attacks on the live check (real models)', () => {
   const moves: Move[] = ['left', 'up', 'right', 'down'];
   const plan = DEFAULT_PLAN;
-  const total = expectedDurationMs(plan, moves.length);
+  // How long a person takes: digits, then ~2.2 s per move and ~0.9 s back to centre.
+  const sched = { moveMs: 2200, centerMs: 900 };
+  const total = plan.speakMs + moves.length * (sched.moveMs + sched.centerMs);
   const times = Array.from({ length: Math.floor(total / 200) + 1 }, (_, i) => i * 200);
 
   function audioWithSpeech(): Buffer {
@@ -177,9 +179,9 @@ describe('attacks on the live check (real models)', () => {
     const at = (t: number): Buffer => {
       if (t < plan.speakMs) return center!;
       const kk = t - plan.speakMs;
-      const i = Math.floor(kk / (plan.moveMs + plan.centerMs));
-      const inMove = kk - i * (plan.moveMs + plan.centerMs);
-      return i < 4 && inMove >= 300 && inMove < plan.moveMs ? tilted[i]! : center!;
+      const i = Math.floor(kk / (sched.moveMs + sched.centerMs));
+      const inMove = kk - i * (sched.moveMs + sched.centerMs);
+      return i < 4 && inMove >= 300 && inMove < sched.moveMs ? tilted[i]! : center!;
     };
     const r = await verifyLiveness(
       {

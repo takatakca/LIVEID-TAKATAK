@@ -17,7 +17,7 @@
 | XSS / clickjacking | strict CSP (`script-src 'self'`, no inline), `frame-ancestors 'none'`, `X-Frame-Options: DENY`, DOM built with `textContent` only |
 | Open redirect | redirect URIs are exact matches of registered https URIs; a bad one shows an error page, never redirects |
 
-Everything is decided on the server. The browser only captures; a modified browser cannot "say" it passed.
+Everything is decided on the server. In the browser, a small face finder only times the captures (video starts when the face is in the oval, ID photo when the card is sharp and still) and shows the green/red arrows; a modified browser cannot "say" it passed — the server re-measures every frame. New challenges are capped at 8 per session, live attempts at 3, ID attempts at 3.
 
 ## Privacy (Québec Law 25 / Act respecting the legal framework for information technology, s. 44–45)
 

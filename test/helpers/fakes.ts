@@ -90,12 +90,14 @@ const POSE: Record<Move | 'center', { nx: number; ny: number }> = {
 export function performance(opts: {
   moves: Move[];
   plan: { speakMs: number; moveMs: number; centerMs: number; fps: number };
+  /** How long this person takes per move (≤ plan.moveMs). */
+  moveDur?: number;
   person?: number[];
   swapPersonAfterMs?: number;
   speak?: boolean;
   mouthMoves?: boolean;
 }): { frames: Array<{ t: number; image: Buffer }>; audio: Buffer } {
-  const { plan } = opts;
+  const plan = { ...opts.plan, moveMs: Math.min(opts.plan.moveMs, opts.moveDur ?? 2200), centerMs: Math.max(opts.plan.centerMs, 900) };
   const person = opts.person ?? PERSON_A;
   const speak = opts.speak ?? true;
   const mouthMoves = opts.mouthMoves ?? true;

@@ -129,9 +129,9 @@ describe('risk', () => {
 });
 
 describe('steps', () => {
-  it('follows the order phone, email, live, ID', () => {
-    expect(plannedSteps(['openid', 'id_document', 'email', 'phone'])).toEqual(['consent', 'phone', 'email', 'liveness', 'id_document']);
-    expect(plannedSteps(['openid', 'phone'])).toEqual(['consent', 'phone']);
+  it('follows the order email, phone, terms, live, ID', () => {
+    expect(plannedSteps(['openid', 'id_document', 'email', 'phone'])).toEqual(['email', 'phone', 'consent', 'liveness', 'id_document']);
+    expect(plannedSteps(['openid', 'phone'])).toEqual(['phone', 'consent']);
     const row = { scopes: ['openid', 'phone', 'liveness'], consented_at: new Date(), phone_verified_at: null } as unknown as SessionRow;
     expect(nextStep(row)).toBe('phone');
   });

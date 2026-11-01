@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { encodeWav, parseWav, sliceMs, voiceActivity } from '../../src/liveness/audio.js';
 import { pearson, verifyAvSync } from '../../src/liveness/avsync.js';
-import { DEFAULT_PLAN, expectedDurationMs, randomDigits, randomMoves } from '../../src/liveness/challenge.js';
+import { DEFAULT_PLAN, minDurationMs, randomDigits, randomMoves } from '../../src/liveness/challenge.js';
 import { classify, observedMoves, runs, sequenceMatches, verifyPoseSequence, type PoseSample } from '../../src/liveness/pose.js';
 import { digitsMatch, OpenAiRecognizer, transcriptToDigits, verifySpokenDigits } from '../../src/liveness/speech.js';
 import { verifyLiveness } from '../../src/liveness/verify.js';
@@ -30,7 +30,7 @@ describe('challenge', () => {
       expect(m.some((x) => x === 'up' || x === 'down')).toBe(true);
     }
     expect(seen.size).toBeGreaterThan(30);
-    expect(expectedDurationMs(DEFAULT_PLAN, 4)).toBe(17400);
+    expect(minDurationMs(DEFAULT_PLAN, 4)).toBe(8600);
   });
 });
 

@@ -2,7 +2,7 @@ import type { Config } from '../config.js';
 import type { FaceAnalyzer, FaceMeasure } from '../face/analyzer.js';
 import { AudioFormatError, durationMs, encodeWav, parseWav, sliceMs } from './audio.js';
 import { verifyAvSync, type AvSyncResult } from './avsync.js';
-import { expectedDurationMs, type ChallengePlan, type Move } from './challenge.js';
+import { minDurationMs, type ChallengePlan, type Move } from './challenge.js';
 import { verifyPoseSequence, type PoseSample } from './pose.js';
 import { verifySpokenDigits, type SpeechRecognizer, type SpeechResult } from './speech.js';
 
@@ -84,8 +84,7 @@ export async function verifyLiveness(
   };
 
   // 1. Timing: the recording must be as long as the challenge, and cannot arrive faster than real time.
-  const expected = expectedDurationMs(input.plan, input.moves.length);
-  if (frames.length < 20 || span < expected * 0.75) {
+  if (frames.length < 20 || span < minDurationMs(input.plan, input.moves.length)) {
     reasons.add('recording_too_short');
     return finish();
   }

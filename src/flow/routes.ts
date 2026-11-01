@@ -14,7 +14,7 @@ import { verifyLiveness } from '../liveness/verify.js';
 import { verifyIdFront } from '../idcheck/verify.js';
 import { getClient } from '../oauth/clients.js';
 import { emailContent, maskEmail, maskPhone, smsText } from './messages.js';
-import { assessRisk, clientSignalsSchema, isDisposableEmail, mergeRisk } from './risk.js';
+import { assessRisk, clientSignalsSchema, isDisposableEmail, mergeRisk, type ClientSignals } from './risk.js';
 import {
   audit,
   ipHash,
@@ -35,8 +35,9 @@ const OTP_MAX_ATTEMPTS = 5;
 const OTP_RESEND_SECONDS = 30;
 const OTP_MAX_PER_SESSION = 5;
 const CHALLENGE_TTL_SECONDS = 180;
+const MAX_CHALLENGES = 8;
 const MAX_FRAME_BYTES = 400 * 1024;
-const MAX_FRAMES = 160;
+const MAX_FRAMES = 220;
 const MAX_TOTAL_FRAME_BYTES = 24 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 2 * 1024 * 1024;
 const MAX_ID_IMAGE_BYTES = 6 * 1024 * 1024;
@@ -129,10 +130,18 @@ export async function flowRoutes(app: FastifyInstance, deps: Deps): Promise<void
   });
 
   // ---- Phone and email codes -------------------------------------------------------------------------
-  async function startOtp(req: FastifyRequest, channel: 'sms' | 'email', rawTarget: string) {
+  async function startOtp(req: FastifyRequest, channel: 'sms' | 'email', rawTarget: string, signals?: ClientSignals) {
     const row = await requireSession(deps, req);
     requireStep(row, channel === 'sms' ? 'phone' : 'email');
     const ip = ipHash(deps, req);
+
+    // Codes are now the first thing a person does: robots are stopped before any SMS or email goes out.
+    const risk = mergeRisk(row.risk, assessRisk(req.headers['user-agent'], signals));
+    await deps.db.query('update liveid_sessions set risk = $2 where id = $1', [row.id, JSON.stringify(risk)]);
+    if (cfg.blockAutomation && risk.hard.length) {
+      await failSession(deps, row, 'automation');
+      throw new FlowError('automation_detected', 403, { signals: risk.hard });
+    }
 
     let target: string;
     if (channel === 'sms') {
@@ -229,9 +238,17 @@ export async function flowRoutes(app: FastifyInstance, deps: Deps): Promise<void
   }
 
   const codeSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
-  app.post('/api/flow/phone/start', async (req) => startOtp(req, 'sms', z.object({ phone: z.string().min(1).max(32) }).parse(req.body).phone));
+  const phoneBody = z.object({ phone: z.string().min(1).max(32), signals: clientSignalsSchema.optional() });
+  const emailBody = z.object({ email: z.string().min(1).max(254), signals: clientSignalsSchema.optional() });
+  app.post('/api/flow/phone/start', async (req) => {
+    const b = phoneBody.parse(req.body);
+    return startOtp(req, 'sms', b.phone, b.signals);
+  });
   app.post('/api/flow/phone/verify', async (req) => verifyOtp(req, 'sms', codeSchema.parse(req.body).code));
-  app.post('/api/flow/email/start', async (req) => startOtp(req, 'email', z.object({ email: z.string().min(1).max(254) }).parse(req.body).email));
+  app.post('/api/flow/email/start', async (req) => {
+    const b = emailBody.parse(req.body);
+    return startOtp(req, 'email', b.email, b.signals);
+  });
   app.post('/api/flow/email/verify', async (req) => verifyOtp(req, 'email', codeSchema.parse(req.body).code));
 
   // ---- Live check -------------------------------------------------------------------------------------
@@ -245,6 +262,12 @@ export async function flowRoutes(app: FastifyInstance, deps: Deps): Promise<void
     if (cfg.blockAutomation && risk.hard.length) {
       await failSession(deps, row, 'automation');
       throw new FlowError('automation_detected', 403, { signals: risk.hard });
+    }
+    // Each challenge is new random digits and moves: cap them so a bot cannot farm challenges for free.
+    const issued = await one<{ n: number }>(deps.db, 'select count(*)::int as n from liveid_challenges where session_id = $1', [row.id]);
+    if ((issued?.n ?? 0) >= MAX_CHALLENGES) {
+      await failSession(deps, row, 'too_many_challenges');
+      throw new FlowError('too_many_attempts', 429);
     }
     const ch = newChallenge(DEFAULT_PLAN);
     await deps.db.query('update liveid_challenges set used_at = now() where session_id = $1 and used_at is null', [row.id]);

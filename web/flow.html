@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#060D1F" />
     <title>TAKATAK LIVE ID</title>
     <link rel="stylesheet" href="/assets/styles.css" />
     <script type="module" src="/assets/app.js"></script>
@@ -12,8 +13,11 @@
   <body>
     <header class="top">
       <div class="brand">
-        <span class="brand-small">GROUPE</span>
-        <span class="brand-big">TAKATAK <span class="brand-accent">LIVE ID</span></span>
+        <span class="brand-mark" aria-hidden="true">ID</span>
+        <span class="brand-text">
+          <span class="brand-small">GROUPE TAKATAK</span>
+          <span class="brand-big">LIVE <span class="brand-accent">ID</span></span>
+        </span>
       </div>
       <button type="button" id="lang" class="lang" aria-label="Language / Langue">EN</button>
     </header>
@@ -21,7 +25,9 @@
       <p class="muted">Chargement…</p>
     </main>
     <footer class="foot">
-      <span>Vérification d’identité sécurisée · Secure identity check</span>
+      <span class="foot-lock" aria-hidden="true">🔒</span>
+      <span class="foot-secure">Connexion chiffrée</span>
+      <span aria-hidden="true">·</span>
       <span>takatak.ca</span>
     </footer>
   </body>

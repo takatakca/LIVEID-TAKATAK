@@ -100,3 +100,20 @@ Signé : **Claude (cloud session LIVE ID 01CXwoss)**
 ## PENDANT (mission 2)
 
 - 09:20 EST — note AVANT écrite avant tout changement de code.
+- 09:30 EST — serveur (avant → après) : ordre des étapes consentement → téléphone → courriel → … devient **courriel → cellulaire → conditions → vidéo → pièce** ; contrôle anti-robot déplacé au **premier envoi de code** (aucun SMS/courriel envoyé à un robot). Tests du flux mis à jour : 49/49.
+- 09:45 EST — écran « Vos coordonnées » : courriel + bouton « Envoyer le code » sur la même ligne → 6 cases de code juste en dessous → vérification automatique au 6e chiffre (coller et remplissage automatique du code SMS gérés) → la section cellulaire s'ouvre en dessous, sans recharger. Écran « Dernière étape avant la vidéo » : une seule case « J'accepte toutes les conditions » + Suivant.
+- 10:00 EST — capture automatique : détecteur de visage dans le navigateur (chargé seulement à l'écran des conditions, 1,6 Mo) → la vidéo démarre seule quand le visage est dans l'ovale ; la pièce : photo prise et envoyée seule quand la carte est dans le cadre, nette, éclairée, sans reflet et immobile (bouton de secours après 8 s).
+- 10:10 EST — défaut trouvé et corrigé : la taille du visage était mesurée avec la boîte large de la librairie (≈ 1,6 × le visage) → « Reculez un peu » à tort ; remplacée par le contour serré des points du visage. Masque sombre autour de l'ovale vérifié au pixel : (188,212,204) → (77,90,98).
+- 10:20 EST — **nouvelle demande de Matt** (flèche verte/rouge) : chaque mouvement de tête devient interactif — grosse flèche qui se remplit en vert pendant que la tête tourne, « Complété ✓ » quand c'est assez loin, rouge « Pas assez — recommencez, allez plus loin » sinon ; on passe au suivant seulement quand c'est vert. Même mesure que le serveur (nez / yeux), avec une marge au-dessus du seuil du serveur. Le serveur revérifie tout.
+- 10:35 EST — revue du code, 3 défauts corrigés (avant → après) : enregistrement sans limite de durée avec les reprises → plafond 40 s et 2 essais de 5 s par mouvement ; plus de 8 défis demandés → la session échoue proprement (sinon boucle) ; minuterie « Renvoyer » qui continuait après « Modifier » → arrêtée. Styles en ligne bloqués par la CSP → remplacés par des classes.
+- 10:40 EST — tests : **60/60** (logique, flux complet sur PostgreSQL, vrais modèles) ; navigateur réel **13/13** : courriel d'abord puis cellulaire sur le même écran ; vidéo partie seule ; photo immobile → flèche rouge « Pas assez », arrêt sans envoi, aucun essai perdu ; pièce SPÉCIMEN photographiée et envoyée seule → visage correspondant → niveau `premium` reçu par le site ; aucune erreur de page ni de CSP.
+
+## APRÈS (mission 2) — 2026-11-01 10:45 EST
+
+**Résultat vérifié** : le parcours premium est en place et testé dans un vrai navigateur : courriel → cellulaire (codes sur le même écran, vérifiés seuls) → « J'accepte toutes les conditions » → vidéo qui démarre seule → flèches vertes/rouges → photo de la pièce prise et envoyée seule → retour automatique vers le site avec le résultat signé.
+
+**Non testable ici, à faire sur un vrai téléphone** : la flèche qui se remplit en vert pendant qu'une vraie tête tourne (la caméra de test ne peut montrer qu'une photo immobile). Le seuil de la flèche est réglable (`NEED` dans `src/web/app.ts`).
+
+**Reste (inchangé)** : fusion dans `main` et redéploiement de la branche ; 20–30 essais réels sur staging ; relecture juridique (consentement, CAI) ; clé OpenAI si on veut le français parlé fiable.
+
+Signé : **Claude (cloud session LIVE ID 01CXwoss)**

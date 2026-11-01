@@ -66,6 +66,11 @@ const wav = path.join(tmp, 'digits.wav');
 if (!existsSync(y4m)) {
   execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-loop', '1', '-i', path.join(assets, 'screenshot-faceid.jpg'), '-vf', 'crop=139:139:14:142,scale=360:360,pad=640:480:140:60', '-r', '10', '-t', '3', '-pix_fmt', 'yuv420p', y4m]);
 }
+const fixtures = JSON.parse(execFileSync(path.join(root, 'node_modules', '.bin', 'tsx'), ['scripts/e2e-seed-face.ts', 'fixtures'], { cwd: root }).toString().trim().split('\n').pop());
+const cardY4m = path.join(tmp, 'specimen-card.y4m');
+if (!existsSync(cardY4m)) {
+  execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-loop', '1', '-i', fixtures.specimen, '-vf', 'scale=1280:960', '-r', '10', '-t', '2', '-pix_fmt', 'yuv420p', cardY4m]);
+}
 if (!existsSync(wav)) {
   execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', "flite=text='seven three nine one':voice=slt", '-ar', '48000', '-ac', '1', wav]);
 }
@@ -142,80 +147,132 @@ async function outboxCode(to) {
   throw new Error('no code for ' + to);
 }
 
-async function contactSteps(page, phone, email, tag) {
-  await page.locator('#contact').fill(phone);
-  await page.screenshot({ path: path.join(out, `${tag}-03-phone.png`) });
-  await page.getByRole('button', { name: 'Envoyer le code' }).click();
-  await page.locator('#code').waitFor();
-  await page.locator('#code').fill(await outboxCode('+1' + phone.replace(/\D/g, '')));
+async function typeCode(page, to) {
+  const code = await outboxCode(to);
+  // Typed one digit at a time into the 6 boxes, like a person; the code is checked at the 6th digit.
+  await page.locator('.otp').first().click();
+  await page.keyboard.type(code, { delay: 40 });
+}
+
+async function contactSteps(page, email, phone, tag) {
+  // Email first: send, the code boxes appear right below, checked automatically.
+  await page.locator('#in-email').fill(email);
+  await page.screenshot({ path: path.join(out, `${tag}-02-email.png`) });
+  await page.locator('.sec.is-active').getByRole('button', { name: 'Envoyer le code' }).click();
+  await page.locator('.otp').first().waitFor();
+  await typeCode(page, email);
+  await page.screenshot({ path: path.join(out, `${tag}-03-email-code.png`) });
+  // Then the mobile, on the same screen (no page change).
+  await page.locator('#in-phone').waitFor();
+  check(`${tag}: email verified inline, phone section opens on the same screen`, (await page.locator('.sec.is-done').count()) === 1);
+  await page.locator('#in-phone').fill(phone);
+  await page.locator('.sec.is-active').getByRole('button', { name: 'Envoyer le code' }).click();
+  await page.locator('.sec.is-active .otp').first().waitFor();
+  await typeCode(page, '+1' + phone.replace(/\D/g, ''));
   await page.screenshot({ path: path.join(out, `${tag}-04-phone-code.png`) });
-  await page.getByRole('button', { name: 'Vérifier' }).click();
-  await page.locator('#contact[type=email]').waitFor();
-  await page.locator('#contact').fill(email);
-  await page.getByRole('button', { name: 'Envoyer le code' }).click();
-  await page.locator('#code').waitFor();
-  await page.locator('#code').fill(await outboxCode(email));
-  await page.getByRole('button', { name: 'Vérifier' }).click();
+}
+
+async function acceptTerms(page, tag, button) {
+  await page.locator('#agree').waitFor();
+  await sleep(600);
+  await page.screenshot({ path: path.join(out, `${tag}-05-terms.png`), fullPage: true });
+  await page.locator('#agree').check();
+  await page.getByRole('button', { name: button }).click();
 }
 
 try {
-  // ---- Run 1 ----
+  // ---- Run 1: email + phone + terms, back to the site with a signed result ----
   const ctx = await browser.newContext({ viewport: { width: 430, height: 900 }, locale: 'fr-CA' });
   const page = await ctx.newPage();
   await page.goto(`${RP}/?scope=${encodeURIComponent('openid phone email')}`);
   await page.screenshot({ path: path.join(out, 'run1-01-partner-site.png') });
   await page.click('#go');
-  await page.getByRole('heading', { name: /Resto Démo veut vérifier votre identité/ }).waitFor();
-  await page.screenshot({ path: path.join(out, 'run1-02-consent.png'), fullPage: true });
-  check('consent screen names the site and lists the checks', (await page.locator('.list li').count()) === 2);
-  await page.locator('#agree').check();
-  await page.getByRole('button', { name: 'Accepter et continuer' }).click();
-  await page.locator('#contact[type=tel]').waitFor();
-  await contactSteps(page, '514 555 0134', 'client.demo@takatak.ca', 'run1');
+  await page.getByText('Resto Démo veut vérifier votre identité').waitFor();
+  check('run1: email comes first, with the send button on the same screen', await page.locator('#in-email').isVisible());
+  await contactSteps(page, 'client.demo@takatak.ca', '514 555 0134', 'run1');
+  await acceptTerms(page, 'run1', 'Accepter et terminer');
   await page.getByRole('heading', { name: 'Identité vérifiée' }).waitFor();
-  await page.screenshot({ path: path.join(out, 'run1-05-verified.png') });
-  await page.getByRole('button', { name: 'Continuer' }).click();
-  await page.locator('#claims').waitFor();
-  await page.screenshot({ path: path.join(out, 'run1-06-back-on-site.png'), fullPage: true });
-  check('site receives a signed result with phone and email verified', lastResult?.phone_number === '+15145550134' && lastResult?.email_verified === true && lastResult?.liveid?.level === 'basic');
+  await page.screenshot({ path: path.join(out, 'run1-06-verified.png') });
+  // No click: it returns to the site by itself.
+  await page.locator('#claims').waitFor({ timeout: 15_000 });
+  await page.screenshot({ path: path.join(out, 'run1-07-back-on-site.png'), fullPage: true });
+  check('run1: site receives a signed result with phone and email verified', lastResult?.phone_number === '+15145550134' && lastResult?.email_verified === true && lastResult?.liveid?.level === 'basic');
   await ctx.close();
 
-  // ---- Run 2 ----
+  // ---- Run 2: full scope; the video starts by itself when the (photo) face is in the oval; refused ----
   const ctx2 = await browser.newContext({ viewport: { width: 430, height: 900 }, locale: 'fr-CA' });
   const p2 = await ctx2.newPage();
+  const consoleErrors = [];
+  p2.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()));
+  p2.on('pageerror', (e) => consoleErrors.push(String(e)));
   await p2.goto(`${RP}/?scope=${encodeURIComponent('openid phone email liveness id_document')}`);
   await p2.click('#go');
-  await p2.locator('#agree').check();
-  await p2.screenshot({ path: path.join(out, 'run2-01-consent-full.png'), fullPage: true });
-  check('full consent lists phone, email, live check and ID', (await p2.locator('.list li').count()) === 4);
-  await p2.getByRole('button', { name: 'Accepter et continuer' }).click();
-  await p2.locator('#contact[type=tel]').waitFor();
-  await contactSteps(p2, '514 555 0177', 'client.live@takatak.ca', 'run2');
-  await p2.getByRole('heading', { name: 'Vérification en direct' }).waitFor();
-  await p2.screenshot({ path: path.join(out, 'run2-05-live-intro.png') });
-  await p2.getByRole('button', { name: 'Démarrer la caméra et le micro' }).click();
-  await p2.getByRole('button', { name: 'Je suis prêt' }).waitFor();
-  await sleep(800);
-  await p2.screenshot({ path: path.join(out, 'run2-06-camera.png') });
-  await p2.getByRole('button', { name: 'Je suis prêt' }).click();
-  await p2.locator('.prompt .big').waitFor({ timeout: 10_000 });
+  await contactSteps(p2, 'client.live@takatak.ca', '514 555 0177', 'run2');
+  await acceptTerms(p2, 'run2', 'Suivant');
+  await p2.locator('.stage-face video').waitFor();
+  await p2.getByText(/Parfait, ne bougez plus|Placez votre visage|Approchez|Reculez|Centrez/).waitFor({ timeout: 30_000 });
+  await sleep(300);
+  await p2.screenshot({ path: path.join(out, 'run2-06-face-guide.png') });
+  // No "ready" button: the countdown starts once the face sits in the oval.
+  await p2.locator('.digits').waitFor({ timeout: 30_000 });
+  check('run2: video started by itself (face in the oval, no button)', (await p2.getByRole('button', { name: 'Je suis prêt' }).count()) === 0);
   await sleep(1200);
   await p2.screenshot({ path: path.join(out, 'run2-07-say-digits.png') });
-  await p2.locator('.prompt .arrow').waitFor({ timeout: 15_000 });
-  await sleep(600);
+  await p2.locator('.gauge').waitFor({ timeout: 15_000 });
+  await sleep(700);
   await p2.screenshot({ path: path.join(out, 'run2-08-turn-head.png') });
-  await p2.locator('.error').waitFor({ timeout: 90_000 });
-  await p2.screenshot({ path: path.join(out, 'run2-09-photo-refused.png'), fullPage: true });
-  const msg = await p2.locator('.error').innerText();
-  check('a still photo on the camera is refused by the server', /mouvements de tête|visage|bouche/i.test(msg), msg);
-  const left = await p2.locator('.muted.small').first().innerText();
-  check('the person sees how many tries are left', /Essais restants : 2/.test(left), left);
+  // A photo cannot turn its head: the arrow turns red ("not enough") and the try stops before any upload.
+  await p2.locator('.gauge.is-bad').waitFor({ timeout: 20_000 });
+  await p2.screenshot({ path: path.join(out, 'run2-09-not-enough-red.png') });
+  check('run2: head not turned → red arrow "Pas assez"', /Pas assez/.test(await p2.locator('.prompt .say').innerText()));
+  await p2.locator('.below .alert.error').waitFor({ timeout: 60_000 });
+  await p2.screenshot({ path: path.join(out, 'run2-10-photo-stopped.png'), fullPage: true });
+  const msg = await p2.locator('.below .alert.error').innerText();
+  check('run2: a still photo cannot complete the moves; the person is asked to start again', /pas assez marqués/.test(msg), msg);
+  const st = await p2.evaluate(() => fetch('/api/flow/state', { credentials: 'same-origin' }).then((r) => r.json()));
+  check('run2: no attempt was used up (nothing was sent)', st.attempts.livenessLeft === 3, JSON.stringify(st.attempts));
+  const cspErrors = consoleErrors.filter((e) => /Content Security Policy|Refused to/i.test(e));
+  check('run2: no browser errors (CSP or script)', consoleErrors.length === 0, consoleErrors.slice(0, 3).join(' | '));
+  if (cspErrors.length) log('CSP:', cspErrors.join(' | '));
   await ctx2.close();
+  await browser.close();
+
+  // ---- Run 3: ID front, photo taken and sent by itself (camera shows the SPECIMEN card) ----
+  const browser3 = await chromium.launch({
+    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-video-capture=${cardY4m}`, `--use-file-for-fake-audio-capture=${wav}`],
+  });
+  const ctx3 = await browser3.newContext({ viewport: { width: 430, height: 900 }, locale: 'fr-CA' });
+  const p3 = await ctx3.newPage();
+  const errors3 = [];
+  p3.on('pageerror', (e) => errors3.push(String(e)));
+  await p3.goto(`${RP}/?scope=${encodeURIComponent('openid phone email liveness id_document')}`);
+  await p3.click('#go');
+  await contactSteps(p3, 'client.id@takatak.ca', '514 555 0188', 'run3');
+  await acceptTerms(p3, 'run3', 'Suivant');
+  await p3.locator('.stage-face').waitFor();
+  // A fake camera cannot pass the live check: mark it passed with the template a real pass stores.
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  const sid = (await db.query(`select id from liveid_sessions where status = 'pending' and consented_at is not null order by created_at desc limit 1`)).rows[0].id;
+  await db.end();
+  execFileSync(tsx, ['scripts/e2e-seed-face.ts', 'seed', sid], { cwd: root, env });
+  await p3.reload();
+  await p3.locator('.stage-card video').waitFor();
+  await p3.locator('.stage-card.is-ok').waitFor({ timeout: 30_000 }).catch(() => undefined);
+  await p3.screenshot({ path: path.join(out, 'run3-06-card-in-frame.png') });
+  await p3.getByRole('heading', { name: 'Identité vérifiée' }).waitFor({ timeout: 60_000 });
+  check('run3: ID photo taken and sent automatically (no button), face matched', (await p3.getByRole('button', { name: 'Prendre la photo' }).count()) === 0 || !(await p3.getByRole('button', { name: 'Prendre la photo' }).isVisible()));
+  await p3.screenshot({ path: path.join(out, 'run3-07-verified.png') });
+  await p3.locator('#claims').waitFor({ timeout: 15_000 });
+  await p3.screenshot({ path: path.join(out, 'run3-08-back-on-site.png'), fullPage: true });
+  check('run3: site receives level premium (live + ID matched)', lastResult?.liveid?.level === 'premium' && lastResult?.liveid?.id_document?.matched === true, JSON.stringify(lastResult?.liveid?.id_document));
+  check('run3: no page errors', errors3.length === 0, errors3.join(' | '));
+  await browser3.close();
 } catch (err) {
   check('browser flow ran without error', false, String(err?.message ?? err));
   await browser.contexts()[0]?.pages()[0]?.screenshot({ path: path.join(out, 'error.png') }).catch(() => {});
 } finally {
-  await browser.close();
+  await browser.close().catch(() => undefined);
   rp.close();
   server.kill('SIGTERM');
 }

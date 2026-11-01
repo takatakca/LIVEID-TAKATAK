@@ -2,20 +2,21 @@
 
 Identity verification for GROUPE TAKATAK (takatak.ca) and partner restaurants: proves a **real person** is there and that it is **the right person** — to stop bots and fraud.
 
-Like "Continue with Facebook": a site sends the person here, they **accept**, then:
+Like "Continue with Facebook": a site sends the person here, and on **one smooth flow, no page reloads**:
 
-1. **Phone** — SMS code
-2. **Email** — email code
-3. **Live check** — say 4 random digits out loud, then turn the head left / right / up / down in a random order
-4. **ID front** — photo of the front of the ID; its face photo is compared with the live face
+1. **Email** — type it, tap *Send code*, the 6 code boxes appear right below; checked as soon as the 6th digit is typed
+2. **Mobile** — same, on the same screen
+3. **Accept all the terms** → *Next*
+4. **Video** — starts **by itself** when the face is in the oval: say 4 random digits, then turn the head; a big arrow **fills in green** as the head turns ("Completed ✓"), turns **red** if the turn is not big enough ("Not enough — try again")
+5. **ID front** — the photo is **taken and sent by itself** when the card is in the frame, sharp and still; its face photo is compared with the live face
 
 …and the site's server receives a **signed result** (EdDSA JWT).
 
-*FR — Vérification d'identité en direct : téléphone, courriel, chiffres dits à voix haute et mouvements de tête au hasard, puis recto de la pièce comparé au visage. Le site reçoit un résultat signé. Journal des notes : [NOTES.md](NOTES.md).*
+*FR — Courriel, puis cellulaire (codes sur le même écran), « J'accepte toutes les conditions », vidéo qui démarre seule (chiffres à voix haute, flèche verte quand la tête tourne assez, rouge sinon), puis photo automatique du recto de la pièce comparée au visage. Le site reçoit un résultat signé. Journal des notes : [NOTES.md](NOTES.md).*
 
 ## Why it is secure
 
-Everything is decided **on the server** (face landmarks, face recognition, speech, OCR — all offline, nothing sent to third parties). The browser only captures. No photo, video or sound is stored. Details and limits: [docs/SECURITY.md](docs/SECURITY.md).
+Everything is decided **on the server** (face landmarks, face recognition, speech, OCR — all offline, nothing sent to third parties). The browser's own face finder only times the captures and drives the green/red arrows; the server re-checks every frame. No photo, video or sound is stored. Details and limits: [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Connect a site
 

@@ -10,13 +10,13 @@ npm run client:create -- --id pppmtl --name "PPP Pizzeria" --redirect https://pp
 
 It prints `client_id` and `client_secret` **once**. Put the secret in that site's secrets (Coolify), never in code, a note or a chat.
 
-Scopes the site can ask for, in the order the person does them:
+Scopes the site can ask for, in the order the person does them ("accept all the terms" always comes right before the video):
 
 | Scope | Check |
 | --- | --- |
 | `openid` | required |
+| `email` | email code (always first) |
 | `phone` | SMS code to a Canadian/US mobile number |
-| `email` | email code |
 | `liveness` | live check: say 4 random digits, turn the head in a random order |
 | `id_document` | front of the ID, face compared with the live check (implies `liveness`) |
 
