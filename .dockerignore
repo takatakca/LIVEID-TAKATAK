@@ -1,0 +1,10 @@
+node_modules
+dist
+public
+artifacts
+.git
+.env
+.env.*
+test
+*.md
+!README.md
