@@ -78,3 +78,25 @@ Ce qui marche, dans l'ordre demandé par Matt :
 Captures d'écran : artefact `e2e-screenshots` de chaque exécution CI GitHub (et `artifacts/e2e/` localement, non versionné car il contient une photo d'exemple d'un tiers).
 
 Signé : **Claude (cloud session LIVE ID 01CXwoss)**
+
+---
+
+# Mission 2 — Parcours premium + capture automatique (2026-11-01)
+
+## AVANT — 2026-11-01 09:20 EST
+
+**Demande de Matt** : capture automatique du visage et de la pièce dès qu'ils sont dans la zone (photo prise et envoyée toute seule) ; plus premium, plus propre ; **courriel d'abord**, puis cellulaire ; bouton « Envoyer le code » sur le même écran, le champ du code apparaît tout de suite, vérification code par code, sans recharger ; ensuite « Accepter toutes les conditions », Suivant, et la vidéo démarre ; vérifier le code pour qu'il n'y ait aucune erreur. Nom : LIVE ID (pas de nouveau dépôt).
+
+**État lu** : branche `claude/liveid-system` a1f08e2 = dernière CI verte ; `main` toujours au commit initial (rien fusionné). Matt dit avoir déployé (depuis la branche).
+
+**Plan** :
+1. Ordre des étapes côté serveur : courriel → téléphone → conditions → direct → pièce. Les signaux anti-robot sont vérifiés dès l'envoi du premier code.
+2. Écran unique « Coordonnées » : courriel + bouton → 6 cases de code juste en dessous → vérification automatique au 6e chiffre → la section cellulaire s'ouvre en dessous ; aucun rechargement.
+3. Conditions : « J'accepte toutes les conditions » + Suivant → caméra + micro s'ouvrent → **détection du visage dans l'ovale dans le navigateur** → départ automatique → enregistrement → envoi automatique.
+4. Pièce : caméra arrière → **détection de la carte (visage de la carte + netteté + stabilité)** → photo et envoi automatiques ; bouton manuel de secours après quelques secondes.
+5. Finition premium (cases de code, anneau de progression, coches, transitions) ; revue du code ; correction d'un défaut déjà repéré : des styles en ligne bloqués par la politique de sécurité (CSP).
+6. Tests (unitaires, flux complet, vrais modèles, navigateur réel avec capture automatique de la carte), CI, push, notes PENDANT/APRÈS.
+
+## PENDANT (mission 2)
+
+- 09:20 EST — note AVANT écrite avant tout changement de code.
