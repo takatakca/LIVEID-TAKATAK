@@ -117,3 +117,10 @@ Signé : **Claude (cloud session LIVE ID 01CXwoss)**
 **Reste (inchangé)** : fusion dans `main` et redéploiement de la branche ; 20–30 essais réels sur staging ; relecture juridique (consentement, CAI) ; clé OpenAI si on veut le français parlé fiable.
 
 Signé : **Claude (cloud session LIVE ID 01CXwoss)**
+
+## Mise en ligne — 2026-11-04
+
+- `main` avancé (fast-forward) de 67fd8f4 → 96dd11c = code testé de la branche `claude/liveid-system`. CI GitHub sur `main` : **succès** (tests + navigateur + image Docker construite et démarrée en mode production).
+- **Bloqué : déploiement sur le serveur.** Le réseau de la session cloud refuse `takatak.ca` (politique réseau de l'environnement) et la session n'a aucun accès Coolify. Geste humain : dans Coolify, l'app LIVE ID → source `main` (ou la branche) → Redeploy ; ou autoriser `takatak.ca` + l'hôte Coolify dans l'accès réseau de l'environnement cloud pour qu'un agent vérifie `/healthz`.
+
+Signé : **Claude (cloud session LIVE ID 01CXwoss)**
